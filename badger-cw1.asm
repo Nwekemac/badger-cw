@@ -3,7 +3,7 @@ global main
 
 section .data
     year_prompt: db "Enter the current year", 0Ah, 0
-    month_prompt: db "Enter the current month", 10, "1: January", 10, "2: February", 10, "3: March", 10, "4: May", 10, "5: April", 10, "6: June", 10, "7: July", 10, "8: August", 10, "9: September", 10, "10: October", 10, "11: November",10, "12: December", 10, 0
+    month_prompt: db "Enter the current month", 10, "1: January", 10, "2: February", 10, "3: March", 10, "4: April", 10, "5: May", 10, "6: June", 10, "7: July", 10, "8: August", 10, "9: September", 10, "10: October", 10, "11: November",10, "12: December", 10, 0
     main_menu: db "What would you like to do?", 10
                db "1: Add Staff", 10
                db "2: Add badger", 10
@@ -55,77 +55,165 @@ display_menu:
     call print_string_new
     call read_int_new
     
-    cmp rax, 1 ;If the input is 1
-    je add_staff
+    ;Compare the input stored in RAX and compare to jump to the appropriate label.
+    cmp rax, 1 
+    je .call_add_staff
     
     cmp rax, 2
-    je add_badger
+    je .call_add_badger
     
     cmp rax, 3
-    je delete_staff
+    je .call_delete_staff
     
     cmp rax, 4
-    je delete_badger
+    je .call_delete_badger
     
     cmp rax, 5
-    je display_all_staff
+    je .call_display_all_staff
     
     cmp rax, 6
-    je display_all_badger
+    je .call_display_all_badger
     
     cmp rax, 7
-    je search_staff
+    je .call_search_staff
     
     cmp rax, 8
-    je search_badger
+    je .call_search_badger
+    
     cmp rax, 9
-    je exit_program
+    je .call_exit_program
     
     ;If the input is not between 1 to 9
     mov rdi, msg_invalid
-    call print_string_new 
-    
-    
-    
+    call print_string_new
     ret
     
+    
+    ;each of the functions are created in isolation for easy debugging. This way, the function called will be independent
+    .call_add_badger:
+        call add_badger
+        ret
+    .call_add_staff:
+        call add_staff
+        ret
+    .call_delete_staff:
+        call delete_staff
+        ret
+    .call_delete_badger:
+        call delete_badger
+        ret
+    .call_display_all_staff:
+        call display_all_staff
+        ret
+    .call_display_all_badger:
+        call display_all_badger
+        ret
+    .call_search_staff:
+        call search_staff
+        ret
+    .call_search_badger:
+        call search_badger
+        ret
+    .call_exit_program:
+        call exit_program
+        ret
+    
+    
+;MAIN Functions
 add_staff:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 32
+
     mov rdi, msg_add_staff
     call print_string_new
-    jmp menu_loop
+    
+    ; Cleanup
+    add rsp, 32
+    pop rbp
     ret
     
 add_badger:
-    jmp menu_loop
-    ret
+    push rbp
+    mov rbp, rsp
+    sub rsp, 32
+    
+    
+    
+    add rsp, 32
+    pop rbp
+    ret ;
 
 delete_staff:
-    jmp menu_loop
-    ret
-
+    push rbp
+    mov rbp, rsp
+    sub rsp, 32
+    
+    
+    
+    add rsp, 32
+    pop rbp
+    ret ;
+    
 delete_badger:
-    jmp menu_loop
-    ret    
+    push rbp
+    mov rbp, rsp
+    sub rsp, 32
+    
+    
+    
+    add rsp, 32
+    pop rbp
+    ret ;    
 
 display_all_staff:
-    jmp menu_loop
-    ret
+    push rbp
+    mov rbp, rsp
+    sub rsp, 32
+    
+    
+    
+    add rsp, 32
+    pop rbp
+    ret ;
     
 display_all_badger:
-    jmp menu_loop
-    ret
+    push rbp
+    mov rbp, rsp
+    sub rsp, 32
+    
+    
+    
+    add rsp, 32
+    pop rbp
+    ret ;
 
 search_staff:
-    jmp menu_loop
-    ret
+    push rbp
+    mov rbp, rsp
+    sub rsp, 32
+    
+    
+    
+    add rsp, 32
+    pop rbp
+    ret ;
 
 search_badger:
-    jmp menu_loop
-    ret
+    push rbp
+    mov rbp, rsp
+    sub rsp, 32
+    
+    
+    
+    add rsp, 32
+    pop rbp
+    ret ;
 
 exit_program:
-    jmp end
-    ret
+    mov rax, 60        ; 60 is the 'sys_exit' system call
+    xor rdi, rdi       ; Return code 0 (Success)
+    syscall            ; The program ends here immediately
     
     
     
@@ -141,6 +229,7 @@ exit_program:
         call request_date
         menu_loop:
             call display_menu
+            jmp menu_loop
             
         
         ;movzx rdi, BYTE [current_month]
@@ -155,5 +244,4 @@ exit_program:
         
         add rsp, 32
         pop rbp
-        end:
         ret ; Return from main function
