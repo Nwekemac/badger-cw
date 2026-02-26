@@ -31,6 +31,7 @@ section .data
     lbl_service:    db "Years of Service: ", 0
     lbl_salary:     db "Current Salary: £", 0
     lbl_email:      db "Email: ", 0
+    lbl_staff_id:   db "Staff ID: ", 0
     
                
     msg_add_staff: db "You can now add a staff!", 0
@@ -236,6 +237,10 @@ add_staff:
     call print_string_new
 
 .exit:
+    ;TEST DISPLAY STAFF FUNCT
+    mov rdi, staff_array    ; Point RDI to the start of the first record
+    call display_staff      ; Call your new single-staff display function
+    
     add rsp, 32
     pop rbp
     ret
@@ -243,6 +248,74 @@ add_staff:
     
 ; End of add_staff function    
     
+
+        
+;DISPLAY_STAFF FUNCTION TO DISPLAY A SINGLE STAFF RECORD
+display_staff:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 32
+    push r12                ; Save R12 so we can use it as our local pointer
+    mov r12, rdi            ; R12 now holds the address of the staff record
+
+    ; --- Print Surname ---
+    mov rdi, lbl_surname
+    call print_string_new
+    mov rdi, r12
+    call print_string_new
+    call print_nl_new
+
+    ; --- Print First Name ---
+    mov rdi, lbl_firstname
+    call print_string_new
+    lea rdi, [r12 + size_staff_surname]
+    call print_string_new
+    call print_nl_new
+
+    ; --- Print Staff ID ---
+    mov rdi, lbl_staff_id
+    lea rdi, [r12 + size_staff_surname + size_staff_firstname]
+    call print_string_new
+    call print_nl_new
+
+    ; --- Calculate and Print Years of Service ---
+    ; Formula: currentYear - joiningYear
+    movzx eax, word [current_year]
+    movzx ebx, word [r12 + size_staff_surname + size_staff_firstname + size_staff_id + size_staff_dept + size_staff_salary]
+    sub eax, ebx                            ; EAX = Years of Service
+    
+    push rax                                ; Save Years of Service for salary calc
+    mov rdi, lbl_service
+    call print_string_new
+    mov rdi, rax
+    call print_int_new
+    call print_nl_new
+
+    ; --- Calculate and Print Annual Salary ---
+    ; Formula: base_salary + (years_of_service * 200)
+    pop rax                                 ; Retrieve Years of Service
+    imul rax, rax, 200                      ; Bonus = Years * 200
+    add eax, [r12 + size_staff_surname + size_staff_firstname + size_staff_id + size_staff_dept]
+    
+    mov rdi, lbl_salary
+    call print_string_new
+    mov rdi, rax
+    call print_int_new
+    call print_nl_new
+
+    ; --- Print Email ---
+    mov rdi, lbl_email
+    call print_string_new
+    lea rdi, [r12 + size_staff_surname + size_staff_firstname + size_staff_id + size_staff_dept + size_staff_salary + size_staff_year]
+    call print_string_new
+    call print_nl_new
+
+    pop r12
+    add rsp, 32
+    pop rbp
+    ret
+; END OF DISPLAY_STAFF FUNCT 
+                                  
         
 add_badger:
     push rbp
