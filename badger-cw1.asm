@@ -298,10 +298,11 @@ display_staff:
     sub rsp, 32
     
     push rbx
-    push rcx
-    push rdx
     push rdi
-    push rsi
+    push r9
+    push r10
+    push r11
+    push r12
     
     mov rbx, rdi ; RBX now contains the the base address of the individual record
     
@@ -388,15 +389,13 @@ display_staff:
     lea rdi, [rbx + staff_email_pfb]
     call print_string_new
     call print_nl_new
-    
-    
-    ;NOTE to SELF: pop and push all the registers that were used
-    pop rsi
+
+    pop r12
+    pop r11
+    pop r12
+    pop r9
     pop rdi
-    pop rdx
-    pop rcx
     pop rbx
-    pop rbp
     
     add rsp, 32
     pop rbp
