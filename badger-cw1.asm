@@ -43,20 +43,34 @@ section .bss
     
 ;   ------- Initialising Staff Records ----------
     ; Defining the size of each input in the record.
-    size_staff_surname    equ 64 ;Name and Surname Expected to be a maximum of 63 + 1 null
-    size_staff_firstname  equ 64
+    size_staff_surname    equ 65 ;64 characters max + 1 null terminator
+    size_staff_firstname  equ 65
     size_staff_id         equ 9   ; 'p' + 7 digits + NUL
     size_staff_dept       equ 1   ; User enters, 1, 2, or 3 depending on Department Options
     size_staff_salary     equ 4   ; 4 Byte can store a large enough value to store the expected Salary
     size_staff_year       equ 2   ; MAX year expected = 2026. 2 bytes large enough
     size_staff_email      equ 64  ; 63 bytes + 1 null
+    size_staff_deleted    equ 1 ; One number, 0 or 1
+    
+    
+    ; Position of each info from the base address of the record
+    staff_surname_pfb       equ 0
+    staff_firstname_pfb     equ staff_surname_pfb   + size_staff_surname
+    staff_id_pfb            equ staff_firstname_pfb + size_staff_firstname
+    staff_dept_pfb          equ staff_id_pfb        + size_staff_id
+    staff_salary_pfb        equ staff_dept_pfb      + size_staff_dept
+    staff_year_pfb          equ staff_salary_pfb    + size_staff_salary
+    staff_email_pfb         equ staff_year_pfb      + size_staff_year
+    staff_deleted_pfb       equ staff_email_pfb     + size_staff_email
     
     
     ;Total size of one staff record
-    size_staff_record     equ size_staff_surname + size_staff_firstname + size_staff_id + size_staff_dept + size_staff_salary + size_staff_year + size_staff_email
+    size_staff_record       equ staff_deleted_pfb   + size_staff_deleted
+    max_no_staff equ 100 ; The maximum number of staff is 100
+    size_staff_array equ max_no_staff * size_staff_record ; Enough for 100 Staff records 
     
-    staff_array: resb size_staff_record * 100 ;Whatever the size of one record is, reseserve enough for 100 of such records
-    staff_count: resd 1  ; Tracks the number of staff to no if it is up to 100
+    staff_array: resb size_staff_array
+    staff_count: resq 1  ; Tracks the number of staff already saved to the array
 
 
 section .text
@@ -158,36 +172,47 @@ display_menu:
 add_staff:
     push rbp
     mov rbp, rsp
-    sub rsp, 32        
+    sub rsp, 32    
+    push rbx
+    push rcx
+    push rdx
+    push rdi
+    push rsi    
 
     ;Check if the array is full
-    mov eax, [staff_count]
-    cmp eax, 100
+    mov rax, [staff_count]
+    cmp rax, 100
     jge .staff_full
+    
+    mov rdi,[staff_count]
+    call print_uint_new
 
     ;Calculate the base address for the new record
-    mov r11, size_staff_record
-    mov eax, [staff_count]
-    imul rax, r11
-    add rax, staff_array
+    ; base address of any record = staff_array ( which is the address of the begining of the entire array) + (Staff_count * size_staff_record)
+    mov rcx, size_staff_record ; size of staff record as computed by the EQU statements
+    mov rax, [staff_count] ;the value stored in memory in staff_count
+    imul rax, rcx ; RAX now = staff_count * size_staff_record
+    mov rbx, staff_array ;stored the pointer of the begining of the entire array in rbx
+    add rbx, rax ; rbx now begining of new entry = base address of entire array + (staff_count * size_staff_record)
     
-    push r12
-    mov r12, rax              ; r12 is now the permanent reference for this record
+    ;RBX  is now the reference base address for this new record being created
 
-    ;Collect Surname ---
+    ;Collect Surname 
     mov rdi, enter_surname
     call print_string_new
-    call read_string_new      ; Library gets input -> Address in RAX
-    mov rsi, rax              ; Source = library buffer
-    mov rdi, r12              ; Destination = Start of record
-    call copy_string
+    call read_string_new      ; Surname String now in RAX
+    mov rsi, rax              ; For the copy_string function, the destination is stored in RSI
+                              ; and the destination is stored in RDI
+    lea rdi, [rbx + staff_surname_pfb]   ; Load the effective address for [RBX + the position of staffname from the base address of that record into RSI
+    
+    call copy_string ; [this moves the value of rsi(contains the pointer to the surname string
 
-    ;Collect First Name ---
+    ;Collect First Name
     mov rdi, enter_firstname
     call print_string_new
     call read_string_new
     mov rsi, rax              ; Source
-    lea rdi, [r12 + size_staff_surname] ; Destination
+    lea rdi, [rbx + staff_firstname_pfb] ; Destination: Effective address RBX + distance of staff surname from the base address of that staff record
     call copy_string
 
     ;Collect Staff ID ---
@@ -195,27 +220,27 @@ add_staff:
     call print_string_new
     call read_string_new
     mov rsi, rax              ; Source
-    lea rdi, [r12 + size_staff_surname + size_staff_firstname] ;Destination
+    lea rdi, [rbx + staff_id_pfb] ;Destination
     call copy_string
 
     ;Collect Department: This one Takes and Integer that is only One Byte Big
     mov rdi, enter_dept
     call print_string_new
-    call read_int_new
+    call read_uint_new
     ;Move the lower byte (8bits of rax into the memory location
-    mov [r12 + size_staff_surname + size_staff_firstname + size_staff_id], al
+    mov BYTE[rbx + staff_dept_pfb], al
 
-    ;Collect Salary  ---
+    ;Collect Salary
     mov rdi, enter_salary
     call print_string_new
-    call read_int_new
-    mov [r12 + size_staff_surname + size_staff_firstname + size_staff_id + size_staff_dept], eax
+    call read_uint_new
+    mov DWORD[rbx + staff_salary_pfb], eax
 
     ; Collect Year of Joining
     mov rdi, enter_year
     call print_string_new
     call read_int_new
-    mov [r12 + size_staff_surname + size_staff_firstname + size_staff_id + size_staff_dept + size_staff_salary], ax
+    mov WORD[rbx + staff_year_pfb], ax
 
     ; Collect Email
 
@@ -223,16 +248,16 @@ add_staff:
     call print_string_new
     call read_string_new
     mov rsi, rax              ; Source
-    lea rdi, [r12 + size_staff_surname + size_staff_firstname + size_staff_id + size_staff_dept + size_staff_salary + size_staff_year]
+    lea rdi, [rbx + staff_email_pfb]
     call copy_string
 
     ; --- 10. Increment Staff Count
     inc dword [staff_count]
     
-    pop r12 
+    
     jmp .exit
 
-.staff_full:
+    .staff_full:
     mov rdi, staff_full
     call print_string_new
 
@@ -240,6 +265,13 @@ add_staff:
     ;TEST DISPLAY STAFF FUNCT
     mov rdi, staff_array    ; Point RDI to the start of the first record
     call display_staff      ; Call your new single-staff display function
+    
+    pop rsi
+    pop rdi
+    pop rdx
+    pop rcx
+    pop rbx
+    pop rbp
     
     add rsp, 32
     pop rbp
@@ -255,62 +287,7 @@ display_staff:
     push rbp
     mov rbp, rsp
     sub rsp, 32
-    push r12                ; Save R12 so we can use it as our local pointer
-    mov r12, rdi            ; R12 now holds the address of the staff record
-
-    ; --- Print Surname ---
-    mov rdi, lbl_surname
-    call print_string_new
-    mov rdi, r12
-    call print_string_new
-    call print_nl_new
-
-    ; --- Print First Name ---
-    mov rdi, lbl_firstname
-    call print_string_new
-    lea rdi, [r12 + size_staff_surname]
-    call print_string_new
-    call print_nl_new
-
-    ; --- Print Staff ID ---
-    mov rdi, lbl_staff_id
-    lea rdi, [r12 + size_staff_surname + size_staff_firstname]
-    call print_string_new
-    call print_nl_new
-
-    ; --- Calculate and Print Years of Service ---
-    ; Formula: currentYear - joiningYear
-    movzx eax, word [current_year]
-    movzx ebx, word [r12 + size_staff_surname + size_staff_firstname + size_staff_id + size_staff_dept + size_staff_salary]
-    sub eax, ebx                            ; EAX = Years of Service
     
-    push rax                                ; Save Years of Service for salary calc
-    mov rdi, lbl_service
-    call print_string_new
-    mov rdi, rax
-    call print_int_new
-    call print_nl_new
-
-    ; --- Calculate and Print Annual Salary ---
-    ; Formula: base_salary + (years_of_service * 200)
-    pop rax                                 ; Retrieve Years of Service
-    imul rax, rax, 200                      ; Bonus = Years * 200
-    add eax, [r12 + size_staff_surname + size_staff_firstname + size_staff_id + size_staff_dept]
-    
-    mov rdi, lbl_salary
-    call print_string_new
-    mov rdi, rax
-    call print_int_new
-    call print_nl_new
-
-    ; --- Print Email ---
-    mov rdi, lbl_email
-    call print_string_new
-    lea rdi, [r12 + size_staff_surname + size_staff_firstname + size_staff_id + size_staff_dept + size_staff_salary + size_staff_year]
-    call print_string_new
-    call print_nl_new
-
-    pop r12
     add rsp, 32
     pop rbp
     ret
@@ -411,6 +388,8 @@ exit_program:
         sub rsp,32
     
         
+        ; TEST to SEE if PROGRAM can DETECT if max number of entries has been reached
+        ;mov QWORD[staff_count], 101
         call request_date
         menu_loop:
             call display_menu
