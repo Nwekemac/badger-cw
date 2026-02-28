@@ -45,6 +45,7 @@ section .data
     msg_add_staff: db "You can now add a staff!", 0
     msg_invalid: db "Invalid input!", 0
     msg_record_not_found: db "Sorry, record no dey!", 0
+    msg_record_deleted: db "Delete Successful!", 0
 
 section .bss
     current_year: resw 4 ; Reserve four bytes to store the current year
@@ -425,7 +426,34 @@ delete_staff:
     mov rbp, rsp
     sub rsp, 32
     
+    push rdi
+    push rsi
+    push rax
     
+    mov rdi, lbl_staff_id
+    call print_string_new
+    call read_string_new
+    mov rdi, rax ;This moves the input into RDI so that it can be passed as
+                 ; a parameter for the find_staff_by_ID function
+    call find_staff_by_ID ; NOW the base address of the record is here, if the
+                          ; record was not found, 0 will be returned
+    cmp rax, 0 ; IF RAX = 0, meaning no record was found,
+    je .not_found
+    
+    ;IF NoT, change the staff_deleted field of that record to 1
+    mov BYTE[rax + staff_deleted_pfb], 1
+    mov rdi, msg_record_deleted
+    call print_string_new
+    jmp .end
+    
+    .not_found:
+    mov rdi, msg_record_not_found
+    call print_string_new
+    
+    .end:
+    pop rax
+    pop rsi
+    pop rdi
     
     add rsp, 32
     pop rbp
@@ -446,7 +474,47 @@ display_all_staff:
     push rbp
     mov rbp, rsp
     sub rsp, 32
-
+    
+    push rbx
+    push rcx
+    push rdi
+    
+    mov rdx, 0 ;RDX USED to count number of records found
+    
+    
+    mov rcx, [staff_count]
+    mov rbx, staff_array ;RBX now contains the pointer to the base of the staff array
+    
+    cmp rcx, 0
+    je .no_records
+    
+    .loop:
+    cmp BYTE[rbx + staff_deleted_pfb], 0
+    jne .next_record ; SKIP if the record has been marked as deleted
+    
+    mov rdi, rbx
+    call display_staff
+    inc rdx
+    
+    .next_record:
+    add rbx, size_staff_record ;Jump to the next RECORD
+    dec rcx
+    cmp rcx, 0
+    jne .loop
+    
+    
+    
+    .no_records:
+    cmp rdx, 0
+    jg .end
+    mov rdi, msg_record_not_found
+    call print_string_new
+    
+    
+    .end:
+    pop rdi
+    pop rcx
+    pop rbx
     
     add rsp, 32
     pop rbp
@@ -480,6 +548,12 @@ find_staff_by_ID:
     mov rbx, staff_array; RBX now contains the pointer to the start of the first slot
     
     .loop:
+    ;Check the Value of the last byte of the record to know if has
+    ; been marked delete. If it has, ignore it
+    cmp BYTE[rbx +staff_deleted_pfb], 0
+    jne .next_record
+    
+    
     lea rsi, [rbx + staff_id_pfb]
     mov rdi, rdx
     ;REF[2] This strings_are_equal function was not developed by me, it was first demonstrated in
