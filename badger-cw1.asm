@@ -44,6 +44,7 @@ section .data
                
     msg_add_staff: db "You can now add a staff!", 0
     msg_invalid: db "Invalid input!", 0
+    msg_record_not_found: db "Sorry, record no dey!", 0
 
 section .bss
     current_year: resw 4 ; Reserve four bytes to store the current year
@@ -214,7 +215,12 @@ add_staff:
     lea rdi, [rbx + staff_surname_pfb]   ; Load the effective address for [RBX + the position of staffname from the base address of that record into RSI
     
     call copy_string ; [this moves the value of rsi(contains the pointer to the surname string
-
+    ;REF[3]: The copy_string function was introduced in class and likely part of the 
+    ;joey_lib_io_v9_release.asm library. It is used in the same manner are demonstrated in the class
+    ;assignments
+    
+    
+    
     ;Collect First Name
     mov rdi, enter_firstname
     call print_string_new
@@ -259,7 +265,7 @@ add_staff:
     lea rdi, [rbx + staff_email_pfb]
     call copy_string
 
-    ; --- 10. Increment Staff Count
+    ; Increment Staff Count
     inc dword [staff_count]
     
     
@@ -392,7 +398,7 @@ display_staff:
 
     pop r12
     pop r11
-    pop r12
+    pop r10
     pop r9
     pop rdi
     pop rbx
@@ -457,17 +463,89 @@ display_all_badger:
     pop rbp
     ret ;
 
-search_staff:
+find_staff_by_ID:
+    ;This function takes the string being pointed to in RDI, and compares it to
+    ; the staff_id for that record. If they the same, it returns the value of the 
+    ; base pointer to that record into RAX
+    
+    
     push rbp
     mov rbp, rsp
     sub rsp, 32
     
     
     
+    mov rdx, rdi; RDX now contains the ID to search for
+    mov rcx, [staff_count]
+    mov rbx, staff_array; RBX now contains the pointer to the start of the first slot
+    
+    .loop:
+    lea rsi, [rbx + staff_id_pfb]
+    mov rdi, rdx
+    ;REF[2] This strings_are_equal function was not developed by me, it was first demonstrated in
+    ;The module in the test_strings_are_equal example in module. The function is most likely included
+    ;in the joey_lib_io_v9_release.asm file
+    call strings_are_equal
+    cmp rax, 1; IF RAX is Zero, Strings are not equal
+    je .found
+    
+    cmp rcx, 0
+    je .not_found ; If the staff count is Zero, meaning no staff record has been added
+    
+    .next_record:
+    add rbx, size_staff_record ;HERE, RBX now holds the pointer to the next record
+    dec rcx ;This will take note that one record out of the total records has been checked
+    cmp rcx, 0
+    jne .loop ;If the value of RCX is still not equal to 0, jump to the loop and check again
+    
+   
+    
+    .not_found:
+    mov rax, 0
+    jmp .end
+    
+     .found:
+    mov rax, rbx ; Move the value of RBX which is the pointer to the start of the record to RAX
+    
+    .end:
     add rsp, 32
     pop rbp
     ret ;
+    
+search_staff:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 32               
 
+    ;REQuest USER ID
+    mov rdi, enter_staff_id
+    call print_string_new
+    call read_string_new      ; ID string pointer now in RAX
+    
+    ;MOV Value to RDI so that it is used as the parameter for the find_staff_by_ID function
+    mov rdi, rax              ;
+    call find_staff_by_ID     ; Returns record address in RAX or 0 if there is no record
+    
+    ;if find_staff_by_ID retunrs 0 into rax, jump to display the error msg.
+    cmp rax, 0
+    je .not_found
+    
+    
+    ;IF found, move the base address of that record into RDI and display
+    mov rdi, rax             
+    call display_staff
+    jmp .end
+
+.not_found:
+    mov rdi, msg_record_not_found      ; Print ERROR if not Found
+    call print_string_new
+    call print_nl_new
+
+.end:
+    add rsp, 32
+    pop rbp
+    ret
+    
 search_badger:
     push rbp
     mov rbp, rsp
