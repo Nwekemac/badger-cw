@@ -47,6 +47,43 @@ section .data
     msg_record_not_found: db "Sorry, record no dey!", 0
     msg_record_deleted: db "Delete Successful!", 0
 
+    ; --- add_badger prompts ---
+    enter_badger_id:    db "Enter Badger ID (bXXXXXX): ", 0
+    enter_badger_name:  db "Enter Badger Name: ", 0
+    enter_sett:         db "Enter Home Sett (1: Settfield, 2: Badgerton, 3: Stripeville): ", 0
+    enter_mass:         db "Enter Mass in kg: ", 0
+    enter_stripes:      db "Enter Number of Stripes (0-255): ", 0
+    enter_sex:          db "Enter Sex (M/F): ", 0
+    enter_birth_month:  db "Enter Month of Birth (1-12): ", 0
+    enter_birth_year:   db "Enter Year of Birth: ", 0
+    enter_keeper_id:    db "Enter Keeper Staff ID (pXXXXXXX): ", 0
+    badger_full:        db "Error: Badger list is full.", 10, 0
+
+    ; --- display_badger labels ---
+    lbl_badger_id:      db "Badger ID: ", 0
+    lbl_badger_name:    db "Name: ", 0
+    lbl_badger_sett:    db "Home Sett: ", 0
+    lbl_badger_mass:    db "Mass (kg): ", 0
+    lbl_badger_stripes: db "Stripes: ", 0
+    lbl_badger_sex:     db "Sex: ", 0
+    lbl_birth_month:    db "Birth Month: ", 0
+    lbl_birth_year:     db "Birth Year: ", 0
+    lbl_age:            db "Age: ", 0
+    lbl_stripiness:     db "Stripiness: ", 0
+    lbl_keeper_id:      db "Keeper ID: ", 0
+
+    ; --- sett name strings ---
+    sett_1:     db "Settfield", 0
+    sett_2:     db "Badgerton", 0
+    sett_3:     db "Stripeville", 0
+
+
+
+
+
+
+
+
 section .bss
     current_year: resw 4 ; Reserve four bytes to store the current year
     current_month: resb 1  ; Buffer to Store the month
@@ -82,6 +119,42 @@ section .bss
     staff_array: resb size_staff_array
     staff_count: resq 1  ; Tracks the number of staff already saved to the array
 
+
+
+
+
+
+    ; --- Badger record field sizes ---
+    size_badger_id          equ 8   ; 'b' + 6 digits + NUL
+    size_badger_name        equ 65  ; 64 chars max + NUL
+    size_badger_sett        equ 1   ; 1=Settfield 2=Badgerton 3=Stripeville
+    size_badger_mass        equ 1   ; whole kg, fits in a byte (0-255)
+    size_badger_stripes     equ 1   ; 0-255
+    size_badger_sex         equ 1   ; ASCII 'M' or 'F'
+    size_badger_birth_month equ 1   ; 1-12
+    size_badger_birth_year  equ 2   ; e.g. 2017  (word)
+    size_badger_keeper_id   equ 9   ; 'p' + 7 digits + NUL
+    size_badger_deleted     equ 1   ; 0=active  1=soft-deleted
+
+    ; --- position of field from base address of one badger record ---
+    badger_id_pfb           equ 0
+    badger_name_pfb         equ badger_id_pfb           + size_badger_id
+    badger_sett_pfb         equ badger_name_pfb         + size_badger_name
+    badger_mass_pfb         equ badger_sett_pfb         + size_badger_sett
+    badger_stripes_pfb      equ badger_mass_pfb         + size_badger_mass
+    badger_sex_pfb          equ badger_stripes_pfb      + size_badger_stripes
+    badger_birth_month_pfb  equ badger_sex_pfb          + size_badger_sex
+    badger_birth_year_pfb   equ badger_birth_month_pfb  + size_badger_birth_month
+    badger_keeper_id_pfb    equ badger_birth_year_pfb   + size_badger_birth_year
+    badger_deleted_pfb      equ badger_keeper_id_pfb    + size_badger_keeper_id
+
+    ; --- Total size of one record and the whole array ---
+    size_badger_record      equ badger_deleted_pfb      + size_badger_deleted
+    max_no_badgers          equ 500
+    size_badger_array       equ max_no_badgers * size_badger_record
+
+    badger_array:   resb size_badger_array
+    badger_count:   resq 1  ; Tracks how many badger slots have been used
 
 section .text
 request_date:
@@ -409,17 +482,116 @@ display_staff:
     ret
 ; END OF DISPLAY_STAFF FUNCT 
                                   
-        
+;--------- ADD BADGER FUNCTN -- - - - - - -        
 add_badger:
+    
     push rbp
     mov rbp, rsp
     sub rsp, 32
-    
-    
-    
+
+    push rbx
+    push rcx
+    push rdx
+    push rdi
+    push rsi
+
+    ; Check if the array is full
+    mov rax, [badger_count]
+    cmp rax, max_no_badgers
+    jge .badger_full
+
+    ; Calculating the base address for the new record
+    ; base = badger_array + (badger_count * size_badger_record)
+    mov rcx, size_badger_record
+    mov rax, [badger_count]
+    imul rax, rcx
+    mov rbx, badger_array
+    add rbx, rax        ; RBX = base address of the new record slot
+
+    ; Collect Badger ID
+    mov rdi, enter_badger_id
+    call print_string_new
+    call read_string_new
+    mov rsi, rax
+    lea rdi, [rbx + badger_id_pfb]
+    call copy_string
+
+    ; Collect Name
+    mov rdi, enter_badger_name
+    call print_string_new
+    call read_string_new
+    mov rsi, rax
+    lea rdi, [rbx + badger_name_pfb]
+    call copy_string
+
+    ; Collect Home Sett (1/2/3 stored as one byte)
+    mov rdi, enter_sett
+    call print_string_new
+    call read_uint_new
+    mov BYTE[rbx + badger_sett_pfb], al
+
+    ; Collect Mass in kg
+    mov rdi, enter_mass
+    call print_string_new
+    call read_uint_new
+    mov BYTE[rbx + badger_mass_pfb], al
+
+    ; Collect Number of Stripes
+    mov rdi, enter_stripes
+    call print_string_new
+    call read_uint_new
+    mov BYTE[rbx + badger_stripes_pfb], al
+
+    ; Collect Sex — read as string, store just the first character
+    mov rdi, enter_sex
+    call print_string_new
+    call read_string_new    ; pointer to input buffer in RAX
+    mov dl, BYTE[rax]       ; grab the first character ('M' or 'F')
+    mov BYTE[rbx + badger_sex_pfb], dl
+
+    ; Collect Month of Birth
+    mov rdi, enter_birth_month
+    call print_string_new
+    call read_uint_new
+    mov BYTE[rbx + badger_birth_month_pfb], al
+
+    ; Collect Year of Birth
+    mov rdi, enter_birth_year
+    call print_string_new
+    call read_int_new
+    mov WORD[rbx + badger_birth_year_pfb], ax
+
+    ; Collect Keeper Staff ID
+    mov rdi, enter_keeper_id
+    call print_string_new
+    call read_string_new
+    mov rsi, rax
+    lea rdi, [rbx + badger_keeper_id_pfb]
+    call copy_string
+
+    ; Mark record as active (not deleted)
+    mov BYTE[rbx + badger_deleted_pfb], 0
+
+    ; Increment badger count
+    inc QWORD[badger_count]
+
+    jmp .exit
+
+.badger_full:
+    mov rdi, badger_full
+    call print_string_new
+
+.exit:
+    pop rsi
+    pop rdi
+    pop rdx
+    pop rcx
+    pop rbx
+
     add rsp, 32
     pop rbp
-    ret ;
+    ret
+;------- End add_badger
 
 delete_staff:
     push rbp
@@ -518,18 +690,216 @@ display_all_staff:
     
     add rsp, 32
     pop rbp
-    ret    
+    ret   
+    
 
+
+;DIsPLAY Badger Function - - - - - - - - - - - - - - - -
+
+; Displays a single badger record in full, including the
+; computed age and stripiness values.
+; RDI = pointer to the base address of the badger record.
+
+display_badger:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 32
+
+    push rbx
+    push rdi
+    push r9
+    push r10
+    push r11
+    push r12
+
+    mov rbx, rdi    ; RBX = base address of this badger record
+
+    ; Print Badger ID
+    mov rdi, lbl_badger_id
+    call print_string_new
+    lea rdi, [rbx + badger_id_pfb]
+    call print_string_new
+    call print_nl_new
+
+    ; Print Name
+    mov rdi, lbl_badger_name
+    call print_string_new
+    lea rdi, [rbx + badger_name_pfb]
+    call print_string_new
+    call print_nl_new
+
+    ; Print Home Sett — base on the number inputed
+    mov rdi, lbl_badger_sett
+    call print_string_new
+    movzx r9, BYTE[rbx + badger_sett_pfb]
+    cmp r9, 1
+    je print_sett_1
+    cmp r9, 2
+    je print_sett_2
+    cmp r9, 3
+    je print_sett_3
+
+print_sett_1:
+    mov rdi, sett_1
+    call print_string_new
+    call print_nl_new
+    jmp print_mass
+print_sett_2:
+    mov rdi, sett_2
+    call print_string_new
+    call print_nl_new
+    jmp print_mass
+print_sett_3:
+    mov rdi, sett_3
+    call print_string_new
+    call print_nl_new
+
+print_mass:
+    ; Print Mass in kg
+    mov rdi, lbl_badger_mass
+    call print_string_new
+    movzx rdi, BYTE[rbx + badger_mass_pfb]
+    call print_uint_new
+    call print_nl_new
+
+    ; Print Number of Stripes
+    mov rdi, lbl_badger_stripes
+    call print_string_new
+    movzx rdi, BYTE[rbx + badger_stripes_pfb]
+    call print_uint_new
+    call print_nl_new
+
+    ; Print Sex — stored as ASCII character, use print_char_new
+    mov rdi, lbl_badger_sex
+    call print_string_new
+    movzx rdi, BYTE[rbx + badger_sex_pfb]
+    call print_char_new
+    call print_nl_new
+
+    ; Print Month of Birth
+    mov rdi, lbl_birth_month
+    call print_string_new
+    movzx rdi, BYTE[rbx + badger_birth_month_pfb]
+    call print_uint_new
+    call print_nl_new
+
+    ; Print Year of Birth
+    mov rdi, lbl_birth_year
+    call print_string_new
+    movzx rdi, WORD[rbx + badger_birth_year_pfb]
+    call print_uint_new
+    call print_nl_new
+
+    ; ---- Calculating  Age ----
+    ; Rule from brief:
+    ;   if (currentMonth - birthMonth) >= 0  →  age = currentYear - birthYear
+    ;   else                                 →  age = currentYear - birthYear - 1
+    ;
+    ; r10 = currentYear - birthYear  (base age)
+    ; r11 = currentMonth - birthMonth (indicates if birthday passed)
+    movzx r10, WORD[current_year]
+    movzx r9,  WORD[rbx + badger_birth_year_pfb]
+    sub r10, r9                     ; r10 = currentYear - birthYear
+
+    movzx r11, BYTE[current_month]
+    movzx r9,  BYTE[rbx + badger_birth_month_pfb]
+    sub r11, r9                     ; r11 = currentMonth - birthMonth
+
+    cmp r11, 0
+    jge .age_ok                     ; birthday already passed this year
+    dec r10                         ; birthday not yet reached — subtract 1
+.age_ok:
+    mov rdi, lbl_age
+    call print_string_new
+    mov rdi, r10
+    call print_uint_new
+    call print_nl_new
+
+    ; ---- Calculating Stripiness ----
+    ; stripiness = mass * numberOfStripes
+    movzx r11, BYTE[rbx + badger_mass_pfb]
+    movzx r12, BYTE[rbx + badger_stripes_pfb]
+    imul r11, r12                   ; r11 = mass * stripes
+
+    mov rdi, lbl_stripiness
+    call print_string_new
+    mov rdi, r11
+    call print_uint_new
+    call print_nl_new
+
+    ; Print Keeper Staff ID
+    mov rdi, lbl_keeper_id
+    call print_string_new
+    lea rdi, [rbx + badger_keeper_id_pfb]
+    call print_string_new
+    call print_nl_new
+
+    pop r12
+    pop r11
+    pop r10
+    pop r9
+    pop rdi
+    pop rbx
+
+    add rsp, 32
+    pop rbp
+    ret
+; End display_badger ---------------------------------
+
+
+;; DISPLAY ALL BADGER FUNCTION
+; LOOPS THrough the records and ignores deleted records
 display_all_badger:
     push rbp
     mov rbp, rsp
     sub rsp, 32
-    
-    
-    
+
+    push rbx
+    push rcx
+    push rdi
+
+    mov rdx, 0              ; RDX counts how many active records are displayed
+
+    mov rcx, [badger_count]
+    mov rbx, badger_array   ; RBX = pointer to the first slot
+
+    cmp rcx, 0
+    je .no_records
+
+.loop:
+    ; Skip deleted records
+    cmp BYTE[rbx + badger_deleted_pfb], 0
+    jne .next_record
+
+    ; Display this record
+    mov rdi, rbx
+    call display_badger
+    inc rdx
+
+.next_record:
+    add rbx, size_badger_record ; Advance RBX to the next slot
+    dec rcx
+    cmp rcx, 0
+    jne .loop
+
+.no_records:
+    cmp rdx, 0
+    jg .end
+    mov rdi, msg_record_not_found
+    call print_string_new
+
+.end:
+    pop rdi
+    pop rcx
+    pop rbx
+
     add rsp, 32
     pop rbp
-    ret ;
+    ret
+; --------End display_all_badger------
+
+
+
 
 find_staff_by_ID:
     ;This function takes the string being pointed to in RDI, and compares it to
