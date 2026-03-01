@@ -989,17 +989,88 @@ search_staff:
     add rsp, 32
     pop rbp
     ret
-    
+; ------- FIND BADGER BY ID -----------
+; Searches badger_array for a record whose badger_id matches he string pointed to by RDI.
+; Returns RAX with the base address of the matching record, or 0
+find_badger_by_ID:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 32
+
+    mov rdx, rdi            ; RDX = the ID string to search for
+    mov rcx, [badger_count]
+    mov rbx, badger_array   ; RBX = pointer to first slot
+
+    .loop:
+    ; ignore deleted record
+    cmp BYTE[rbx + badger_deleted_pfb], 0
+    jne .next_record
+
+    ; Compare the stored ID with the search ID
+    lea rsi, [rbx + badger_id_pfb]
+    mov rdi, rdx
+    call strings_are_equal  ; Returns 1 if equal, 0 if not
+    cmp rax, 1
+    je .found
+
+    cmp rcx, 0
+    je .not_found
+
+    .next_record:
+    add rbx, size_badger_record
+    dec rcx
+    cmp rcx, 0
+    jne .loop
+
+.not_found:
+    mov rax, 0
+    jmp .end
+
+.found:
+    mov rax, rbx    ; Return the base address of the matching record
+
+.end:
+    add rsp, 32
+    pop rbp
+    ret
+; ----- --- - End find_badger_by_ID - - - - - - -  
+   
+       
+               
+; - - - - - - Search Badger function - - - - -
 search_badger:
     push rbp
     mov rbp, rsp
     sub rsp, 32
-    
-    
-    
+
+    ; Request Badger ID from user
+    mov rdi, enter_badger_id
+    call print_string_new
+    call read_string_new    ; ID string pointer now in RAX
+
+    ; Pass the ID to find_badger_by_ID
+    mov rdi, rax
+    call find_badger_by_ID  ; Returns record address in RAX or 0
+
+    cmp rax, 0
+    je .not_found
+
+    ; Found — display the record
+    mov rdi, rax
+    call display_badger
+    jmp .end
+
+.not_found:
+    mov rdi, msg_record_not_found
+    call print_string_new
+    call print_nl_new
+
+.end:
     add rsp, 32
     pop rbp
-    ret ;
+    ret
+; End search_badger -----------------
+
 
 exit_program:
     ;REF[1]: This exit_program function was researched as the other method of jumping to the end of main seemed problematic.
