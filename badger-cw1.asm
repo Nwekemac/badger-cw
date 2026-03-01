@@ -132,9 +132,9 @@ section .bss
     size_badger_stripes     equ 1   ; 0-255
     size_badger_sex         equ 1   ; ASCII 'M' or 'F'
     size_badger_birth_month equ 1   ; 1-12
-    size_badger_birth_year  equ 2   ; e.g. 2017  (word)
+    size_badger_birth_year  equ 2   ; e.g. 2017 
     size_badger_keeper_id   equ 9   ; 'p' + 7 digits + NUL
-    size_badger_deleted     equ 1   ; 0=active  1=soft-deleted
+    size_badger_deleted     equ 1   ; 0=active  1=deleted
 
     ; --- position of field from base address of one badger record ---
     badger_id_pfb           equ 0
@@ -635,12 +635,42 @@ delete_badger:
     push rbp
     mov rbp, rsp
     sub rsp, 32
-    
-    
-    
+
+    push rdi
+    push rsi
+    push rax
+
+    ; REquest Badger ID to delete
+    mov rdi, enter_badger_id
+    call print_string_new
+    call read_string_new
+
+    ; Pass the ID string to find_badger_by_ID
+    mov rdi, rax
+    call find_badger_by_ID  ; RAX = record address, or 0 if not found
+
+    cmp rax, 0
+    je .not_found
+
+    ; Record found — mark it as deleted
+    mov BYTE[rax + badger_deleted_pfb], 1 ; Changing it to 1 will cause it to be ignored during display loops and find_badger_by_ID
+    mov rdi, msg_record_deleted
+    call print_string_new
+    jmp .end
+
+.not_found:
+    mov rdi, msg_record_not_found
+    call print_string_new
+
+.end:
+    pop rax
+    pop rsi
+    pop rdi
+
     add rsp, 32
     pop rbp
-    ret ;    
+    ret
+; End delete_badger    
 
 display_all_staff:
     push rbp
@@ -791,7 +821,7 @@ print_mass:
     call print_nl_new
 
     ; ---- Calculating  Age ----
-    ; Rule from brief:
+    ; 
     ;   if (currentMonth - birthMonth) >= 0  →  age = currentYear - birthYear
     ;   else                                 →  age = currentYear - birthYear - 1
     ;
